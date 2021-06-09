@@ -44,7 +44,7 @@ func (p Function) AddBackendDescription(symbolName string, b *emulator.Backend) 
 	}
 
 	b.CloudFunctions = append(b.CloudFunctions, emulator.FunctionSpec{
-		ApiVersion: emulator.GCFv2,
+		ApiVersion: emulator.GCFv1,
 		EntryPoint: fmt.Sprintf("%s.%s", symbolName, "Callback"),
 		Id:         symbolName,
 		Region:     p.Region,

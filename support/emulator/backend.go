@@ -18,6 +18,7 @@ type EventTrigger struct {
 type ApiVersion int
 
 const GCFv2 ApiVersion = 2
+const GCFv1 ApiVersion = 1
 
 type FunctionSpec struct {
 	ApiVersion ApiVersion `yaml:"apiVersion"`

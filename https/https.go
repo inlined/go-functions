@@ -24,7 +24,7 @@ type Function struct {
 func (h Function) AddBackendDescription(symbolName string, b *emulator.Backend) {
 	// Runtime isn't specified from within the API?
 	b.CloudFunctions = append(b.CloudFunctions, emulator.FunctionSpec{
-		ApiVersion:        emulator.GCFv2,
+		ApiVersion:        emulator.GCFv1,
 		Id:                symbolName,
 		EntryPoint:        fmt.Sprintf("%s.%s", symbolName, "Callback"),
 		MinInstances:      h.RunWith.MinInstances,
