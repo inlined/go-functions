@@ -13,7 +13,7 @@ type ResponseWriter = http.ResponseWriter
 type Options struct {
 	MinInstances      int
 	MaxInstances      int
-	AvailableMemoryMb int
+	AvailableMemoryMB int
 }
 
 type Function struct {
@@ -29,6 +29,6 @@ func (h Function) AddBackendDescription(symbolName string, b *emulator.Backend) 
 		EntryPoint:        fmt.Sprintf("%s.%s", symbolName, "Callback"),
 		MinInstances:      h.RunWith.MinInstances,
 		MaxInstances:      h.RunWith.MaxInstances,
-		AvailableMemoryMB: h.RunWith.AvailableMemoryMb,
+		AvailableMemoryMB: h.RunWith.AvailableMemoryMB,
 	})
 }

@@ -11,7 +11,7 @@ import (
 
 var Webhook = https.Function{
 	RunWith: https.Options{
-		AvailableMemoryMb: 256,
+		AvailableMemoryMB: 256,
 	},
 	Callback: func(w https.ResponseWriter, r *https.Request) {
 		fmt.Fprintf(w, "Hello, world!\n")
