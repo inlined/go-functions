@@ -16,6 +16,8 @@ var V1 = struct {
 	Publish: "google.cloud.pubsub.topic.v1.messagePublished",
 }
 
+const MessagePublished EventType = "google.pubsub.topic.publish"
+
 type Function struct {
 	EventType EventType
 	Topic     string

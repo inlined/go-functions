@@ -4,15 +4,25 @@ import (
 	"os"
 )
 
+type EventFilters []EventFilter
+
+func (f EventFilters) MarshalYAML() (interface{}, error) {
+	m := make(map[string]interface{}, len(f))
+	for _, filter := range f {
+		m[filter.Attribute] = filter.Value
+	}
+	return m, nil
+}
+
 type EventFilter struct {
 	Attribute string `yaml:"attribute"`
 	Value     string `yaml:"value"`
 }
 
 type EventTrigger struct {
-	EventType           string        `yaml:"eventType,omitempty"`
-	EventFilters        []EventFilter `yaml:"eventFilters,omitempty"`
-	ServiceAccountEmail string        `yaml:"serviceAccountEmail,omitempty"`
+	EventType           string       `yaml:"eventType,omitempty"`
+	EventFilters        EventFilters `yaml:"eventFilters,omitempty"`
+	ServiceAccountEmail string       `yaml:"serviceAccountEmail,omitempty"`
 }
 
 type ApiVersion int
