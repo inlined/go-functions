@@ -20,35 +20,35 @@ type ApiVersion int
 const GCFv2 ApiVersion = 2
 
 type FunctionSpec struct {
-	ApiVersion ApiVersion
-	EntryPoint string
-	Id         string
-	Region     string
-	Project    string
+	ApiVersion ApiVersion `yaml:"apiVersion"`
+	EntryPoint string     `yaml:"entryPoint"`
+	Id         string     `yaml:"id"`
+	Region     string     `yaml:"region,omitempty"`
+	Project    string     `yaml:"project,omitempty"`
 	// NOTE: In the current schema this is a union between
 	// an HTTP and an EventTrigger. Since HTTP triggers have
 	// no options in GCFv2 we can just use an empty EventTrigger
 	// for now.
-	Trigger           EventTrigger
-	MinInstances      int
-	MaxInstances      int
-	AvailableMemoryMB int
+	Trigger           EventTrigger `yaml:"trigger"`
+	MinInstances      int          `yaml:"minInstances,omitempty"`
+	MaxInstances      int          `yaml:"maxInstances,omitempty"`
+	AvailableMemoryMB int          `yaml:"availableMemoryMb,omitempty"`
 }
 
 type TargetService struct {
-	Id      string
-	Region  string
-	Project string
+	Id      string `yaml:"id"`
+	Region  string `yaml:"region,omitempty"`
+	Project string `yaml:"project,omitempty"`
 }
 
 type PubSubSpec struct {
 	Id            string        `yaml:"id"`
-	Project       string        `yaml:"project"`
+	Project       string        `yaml:"project,omitempty"`
 	TargetService TargetService `yaml:"targetService"`
 }
 
 type ScheduleRetryConfig struct {
-	RetryCount int `yaml:"retryCount"`
+	RetryCount int `yaml:"retryCount,omitempty"`
 }
 
 type Transport string
@@ -67,7 +67,7 @@ type ScheduleSpec struct {
 }
 
 type Backend struct {
-	RequiredAPIs   map[string]string `yaml:"requiredApis"`
+	RequiredAPIs   map[string]string `yaml:"requiredAPIs"`
 	CloudFunctions []FunctionSpec    `yaml:"cloudFunctions"`
 	Topics         []PubSubSpec      `yaml:"topics"`
 	Schedules      []ScheduleSpec    `yaml:"schedules"`
