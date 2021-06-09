@@ -119,12 +119,18 @@ func Serve(symbols map[string]interface{}) {
 	// TODO: graceful shutdown on SIGINT
 	done := make(chan struct{}, 2)
 	go func() {
-		http.ListenAndServe(fmt.Sprintf("localhost:%d", port), mux)
+		err := http.ListenAndServe(fmt.Sprintf("localhost:%d", port), mux)
+		if err != nil {
+			fmt.Println("Emulator exited with error", err)
+		}
 		done <- struct{}{}
 	}()
 	go func() {
 		if adminPort != 0 {
-			http.ListenAndServe(fmt.Sprintf("localhost:%d", adminPort), adminMux)
+			err := http.ListenAndServe(fmt.Sprintf("localhost:%d", adminPort), adminMux)
+			if err != nil {
+				fmt.Println("Emulator admin API exited with error", err)
+			}
 		}
 		done <- struct{}{}
 	}()
