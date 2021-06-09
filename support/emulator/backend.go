@@ -10,8 +10,8 @@ type EventFilter struct {
 }
 
 type EventTrigger struct {
-	EventType           string        `yaml:"eventType"`
-	EventFilters        []EventFilter `yaml:"eventFilters"`
+	EventType           string        `yaml:"eventType,omitempty"`
+	EventFilters        []EventFilter `yaml:"eventFilters,omitempty"`
 	ServiceAccountEmail string        `yaml:"serviceAccountEmail,omitempty"`
 }
 
@@ -67,10 +67,10 @@ type ScheduleSpec struct {
 }
 
 type Backend struct {
-	RequiredAPIs   map[string]string `yaml:"requiredAPIs"`
+	RequiredAPIs   map[string]string `yaml:"requiredAPIs,omitempty"`
 	CloudFunctions []FunctionSpec    `yaml:"cloudFunctions"`
-	Topics         []PubSubSpec      `yaml:"topics"`
-	Schedules      []ScheduleSpec    `yaml:"schedules"`
+	Topics         []PubSubSpec      `yaml:"topics,omitempty"`
+	Schedules      []ScheduleSpec    `yaml:"schedules,omitempty"`
 }
 
 func ProjectOrDefault(project string) string {
