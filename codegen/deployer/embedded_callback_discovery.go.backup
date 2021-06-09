@@ -1,0 +1,266 @@
+package main
+
+import (
+	"errors"
+	"fmt"
+	"go/types"
+	"log"
+	"strings"
+	"text/template"
+
+	"golang.org/x/tools/go/packages"
+)
+
+func main() {
+	triggers, err := extractTriggers("acme.com/example")
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	for _, trig := range triggers {
+		s, err := trig.Discover()
+		if err != nil {
+			log.Fatalln(err)
+		}
+
+		fmt.Println(s)
+	}
+
+	fmt.Println()
+	for _, trig := range triggers {
+		s, err := trig.Deploy()
+		if err != nil {
+			log.Fatalln(err)
+		}
+
+		fmt.Println(s)
+	}
+}
+
+func extractTriggers(pkg string) ([]Trigger, error) {
+	exports, err := loadExports(pkg)
+	if err != nil {
+		return nil, err
+	}
+
+	var triggers []Trigger
+	for _, exp := range exports {
+		typeName := exp.Type().String()
+		var trigger Trigger
+		if typeName == "firebase.com/functions.HTTPTrigger" {
+			trigger = newHTTPTrigger(pkg, exp)
+		} else if typeName == "firebase.com/functions.PubSubTrigger" {
+			trigger = newPubSubTrigger(pkg, exp)
+		} else {
+			log.Fatalf("Unsupported trigger type: %s", typeName)
+		}
+
+		triggers = append(triggers, trigger)
+	}
+
+	return triggers, nil
+}
+
+func loadExports(pkg string) ([]types.Object, error) {
+	cfg := &packages.Config{Mode: packages.LoadTypes}
+	pkgs, err := packages.Load(cfg, pkg)
+	if err != nil {
+		return nil, err
+	}
+	if packages.PrintErrors(pkgs) > 0 {
+		return nil, err
+	}
+
+	var results []types.Object
+	scope := pkgs[0].Types.Scope()
+	for _, symbol := range scope.Names() {
+		typeInfo := scope.Lookup(symbol)
+		if isTrigger(symbol, typeInfo) {
+			results = append(results, typeInfo)
+		}
+	}
+
+	if results == nil {
+		return nil, errors.New("no exported member")
+	}
+
+	return results, nil
+}
+
+func isTrigger(name string, typeInfo types.Object) bool {
+	if !typeInfo.Exported() {
+		return false
+	}
+
+	typeName := typeInfo.Type().String()
+	for _, target := range triggerTypes {
+		if typeName == target {
+			return true
+		}
+	}
+
+	return false
+}
+
+var triggerTypes = []string{
+	"firebase.com/functions.HTTPTrigger",
+	"firebase.com/functions.PubSubTrigger",
+}
+
+type Trigger interface {
+	Discover() (string, error)
+	Deploy() (string, error)
+}
+
+type HTTPTrigger struct {
+	Pkg  string
+	Func string
+}
+
+func newHTTPTrigger(pkg string, typeInfo types.Object) *HTTPTrigger {
+	return &HTTPTrigger{
+		Pkg:  pkg,
+		Func: typeInfo.Name(),
+	}
+}
+
+var httpDiscovery = `package main
+
+import (
+	"fmt"
+
+	alias "{{ .Pkg }}"
+)
+
+func main() {
+	spec := alias.{{ .Func }}
+	fmt.Printf("{{ .Func }}: %#v\n", spec)
+}
+`
+
+var httpInvoker = `package main
+
+import (
+	"fmt"
+	"net/http
+
+	alias "{{ .Pkg }}"
+)
+
+func {{ .Func }}(r *http.Request, w http.ResponseWriter) {
+	alias.{{ .Func }}.Callback()
+}
+`
+
+func (ht *HTTPTrigger) Discover() (string, error) {
+	tmpl, err := template.New("http_discovery").Parse(httpDiscovery)
+	if err != nil {
+		return "", err
+	}
+
+	b := new(strings.Builder)
+	if err := tmpl.Execute(b, ht); err != nil {
+		return "", err
+	}
+
+	return b.String(), nil
+}
+
+func (ht *HTTPTrigger) Deploy() (string, error) {
+	tmpl, err := template.New("http_deploy").Parse(httpInvoker)
+	if err != nil {
+		return "", err
+	}
+
+	b := new(strings.Builder)
+	if err := tmpl.Execute(b, ht); err != nil {
+		return "", err
+	}
+
+	return b.String(), nil
+}
+
+type PubSubTrigger struct {
+	Pkg  string
+	Func string
+}
+
+func newPubSubTrigger(pkg string, typeInfo types.Object) *PubSubTrigger {
+	return &PubSubTrigger{
+		Pkg:  pkg,
+		Func: typeInfo.Name(),
+	}
+}
+
+var pubsubDiscovery = `package main
+
+import (
+	"fmt"
+
+	alias "{{ .Pkg }}"
+)
+
+func main() {
+	spec := alias.{{ .Func }}
+	fmt.Printf("{{ .Func }}: %#v\n", spec)
+}
+`
+
+var pubsubDeploy = `
+package main
+
+import (
+	"context"
+	"encoding/json"
+	"reflect"
+
+	alias "{{ .Pkg }}"
+)
+
+func {{ .Func }}(ctx context.Context, data json.RawMessage) {
+	spec := alias.{{ .Func }}
+	callbackType := reflect.TypeOf(spec.Callback)
+	argType := callbackType.In(1)
+	if argType.Kind() == reflect.Ptr {
+		argType = argType.Elem()
+	}
+
+	val := reflect.New(argType)
+	p := val.Interface()
+	if err := json.Unmarshal(data, p); err != nil {
+		panic(err)
+	}
+
+	reflect.ValueOf(spec.Callback).Call([]reflect.Value{
+		reflect.ValueOf(ctx),
+		val,
+	})
+}`
+
+func (pt *PubSubTrigger) Discover() (string, error) {
+	tmpl, err := template.New("pubsub_discovery").Parse(pubsubDiscovery)
+	if err != nil {
+		return "", err
+	}
+
+	b := new(strings.Builder)
+	if err := tmpl.Execute(b, pt); err != nil {
+		return "", err
+	}
+
+	return b.String(), nil
+}
+
+func (pt *PubSubTrigger) Deploy() (string, error) {
+	tmpl, err := template.New("pubsub_deploy").Parse(pubsubDeploy)
+	if err != nil {
+		return "", err
+	}
+
+	b := new(strings.Builder)
+	if err := tmpl.Execute(b, pt); err != nil {
+		return "", err
+	}
+
+	return b.String(), nil
+}
