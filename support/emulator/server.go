@@ -80,22 +80,6 @@ func getHandler(f function) func(http.ResponseWriter, *http.Request) {
 // This would require reimplementing a shim type because we can't have
 // a circular reference between the https package and this package.
 func Serve(symbols map[string]interface{}) {
-	d := functionData{}
-	mux := http.NewServeMux()
-	adminMux := http.NewServeMux()
-
-	for symbol, value := range symbols {
-		if asFunc, ok := value.(function); ok {
-			d[symbol] = asFunc
-		}
-	}
-
-	for symbol, function := range d {
-		mux.HandleFunc(fmt.Sprintf("/%s", symbol), getHandler(function))
-	}
-
-	adminMux.HandleFunc("/backend.yaml", d.DescribeBackend)
-
 	var port int64 = 8080
 	var err error
 	if portStr := os.Getenv("PORT"); portStr != "" {
@@ -110,17 +94,36 @@ func Serve(symbols map[string]interface{}) {
 			panic("environment varialbe ADMIN_PORT must be an int")
 		}
 	}
+	fmt.Printf("Serving emulator at http://localhost:%d\n", port)
+	if adminPort != 0 {
+		fmt.Printf("Serving emulator admin API at http://localhost:%d\n", adminPort)
+	}
+
+	d := functionData{}
+	mux := http.NewServeMux()
+	adminMux := http.NewServeMux()
+
+	for symbol, value := range symbols {
+		if asFunc, ok := value.(function); ok {
+			d[symbol] = asFunc
+		}
+	}
+
+	for symbol, function := range d {
+		fmt.Printf("Serving function at http://localhost:%d/%s\n", port, symbol)
+		mux.HandleFunc(fmt.Sprintf("/%s", symbol), getHandler(function))
+	}
+
+	adminMux.HandleFunc("/backend.yaml", d.DescribeBackend)
 
 	// TODO: graceful shutdown on SIGINT
 	done := make(chan struct{}, 2)
 	go func() {
-		fmt.Println("Serving emulator on port ", port)
 		http.ListenAndServe(fmt.Sprintf("localhost:%d", port), mux)
 		done <- struct{}{}
 	}()
 	go func() {
 		if adminPort != 0 {
-			fmt.Println("Serving emulator admin API on port ", adminPort)
 			http.ListenAndServe(fmt.Sprintf("localhost:%d", adminPort), adminMux)
 		}
 		done <- struct{}{}

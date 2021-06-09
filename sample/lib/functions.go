@@ -14,7 +14,7 @@ var Webhook = https.Function{
 		AvailableMemoryMb: 256,
 	},
 	Callback: func(w https.ResponseWriter, r *https.Request) {
-		fmt.Fprintf(w, "Hello, world!")
+		fmt.Fprintf(w, "Hello, world!\n")
 	},
 }
 

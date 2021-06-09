@@ -5,8 +5,8 @@
 package main
 
 import (
-	"github.com/inlined/go-functions/internal/emulator"
 	alias "github.com/inlined/go-functions/sample/lib"
+	"github.com/inlined/go-functions/support/emulator"
 )
 
 func main() {

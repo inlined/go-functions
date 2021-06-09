@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/inlined/go-functions/internal/emulator"
 	"github.com/inlined/go-functions/runwith"
+	"github.com/inlined/go-functions/support/emulator"
 )
 
 type EventType string

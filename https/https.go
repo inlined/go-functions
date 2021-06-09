@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/inlined/go-functions/internal/emulator"
+	"github.com/inlined/go-functions/support/emulator"
 )
 
 type Request = http.Request
