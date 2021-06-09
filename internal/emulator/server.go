@@ -33,11 +33,6 @@ func getHandler(f function) func(http.ResponseWriter, *http.Request) {
 	if callback.Type().Kind() == reflect.Interface {
 		callback = callback.Elem()
 	}
-	if !callback.IsValid() {
-		fmt.Printf("Could not find Callback field in %+v\n", f)
-	} else {
-		fmt.Println("Callback is type", callback.Type())
-	}
 	if callback.Kind() != reflect.Func {
 		panic("CloudFunctions should have a Callback function")
 	}
@@ -53,16 +48,29 @@ func getHandler(f function) func(http.ResponseWriter, *http.Request) {
 		panic("Event-handling CloudFunctions should take a first parameter of *context.Context")
 	}
 
-	argType := callback.Type().In(1)
 	return func(w http.ResponseWriter, r *http.Request) {
 		defer r.Body.Close()
-		argPtr := reflect.New(argType)
-		argValue := argPtr.Elem()
-		arg := argValue.Interface()
-		json.NewDecoder(r.Body).Decode(arg)
-		// Must hold this in an intermediary to force the coercion
-		var ctx context.Context = r.Context()
-		callback.Call([]reflect.Value{reflect.ValueOf(ctx), argValue})
+
+		// Support both a Foo and a Foo* by tracking the arg type and value type separately.
+		// If argType is a Foo then valueType is a Foo. If argType is a *Foo then valueType
+		// is a Foo.
+		argType := callback.Type().In(1)
+		valueType := argType
+		if valueType.Kind() == reflect.Ptr {
+			valueType = valueType.Elem()
+		}
+		valuePtr := reflect.New(valueType)
+		json.NewDecoder(r.Body).Decode(valuePtr.Interface())
+
+		// Now we need to get an actual argument of type argType.
+		// valuePtr is type *Foo, so arg will start as Foo and
+		// then become *Foo again if argType is a *Foo
+		arg := valuePtr.Elem()
+		if arg.Type() != argType {
+			arg = arg.Addr()
+		}
+
+		callback.Call([]reflect.Value{reflect.ValueOf(r.Context()), arg})
 		w.WriteHeader(200)
 	}
 }
@@ -83,11 +91,10 @@ func Serve(symbols map[string]interface{}) {
 	}
 
 	for symbol, function := range d {
-		fmt.Println("About to add symbol", symbol)
 		mux.HandleFunc(fmt.Sprintf("/%s", symbol), getHandler(function))
 	}
 
-	adminMux.HandleFunc("/__/backend.yaml", d.DescribeBackend)
+	adminMux.HandleFunc("/backend.yaml", d.DescribeBackend)
 
 	var port int64 = 8080
 	var err error
@@ -107,12 +114,14 @@ func Serve(symbols map[string]interface{}) {
 	// TODO: graceful shutdown on SIGINT
 	done := make(chan struct{}, 2)
 	go func() {
-		http.ListenAndServe(fmt.Sprintf(":%d", port), mux)
+		fmt.Println("Serving emulator on port ", port)
+		http.ListenAndServe(fmt.Sprintf("localhost:%d", port), mux)
 		done <- struct{}{}
 	}()
 	go func() {
 		if adminPort != 0 {
-			http.ListenAndServe(fmt.Sprintf(":%d", adminPort), adminMux)
+			fmt.Println("Serving emulator admin API on port ", adminPort)
+			http.ListenAndServe(fmt.Sprintf("localhost:%d", adminPort), adminMux)
 		}
 		done <- struct{}{}
 	}()

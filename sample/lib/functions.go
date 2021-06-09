@@ -22,13 +22,19 @@ var PubSubListener = pubsub.Function{
 	RunWith: runwith.Options{
 		MinInstances: 1,
 	},
-	Topic: "topic",
+	EventType: pubsub.V1.Publish,
+	Topic:     "topic",
 	Callback: func(ctx context.Context, event pubsub.Event) {
-		fmt.Printf("Got event %+v", event)
+		fmt.Printf("Got event %+v\n", event)
 	},
 }
 
 var NotAFunction = "Non-functions can be safely dumped to emulator.Serve to simplify code gen"
+
+// Is this better?
+// var PubSubListner2 = pubsub.RunWith(runwith.Options{ MinInstances: 2 }).Topic("foo").OnPublish(func (ctx context.Context, event pubsub.Event) {
+//
+// })
 
 func NotACloudFunction(x int) {
 	fmt.Println(x)
