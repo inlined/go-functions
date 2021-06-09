@@ -15,7 +15,7 @@ import (
 func main() {
 	argsWithoutProg := os.Args[1:]
 	if len(argsWithoutProg) != 1 {
-		fmt.Println("Usage: go run deploy_functions.go <FunctionPackage>")
+		fmt.Println("Usage: go run codegen.go <FunctionPackage>")
 		os.Exit(1)
 	}
 
@@ -33,32 +33,15 @@ func main() {
 	fmt.Println(code)
 }
 
-type Trigger struct {
-	Name string
-	Type string
-}
-
-const httpTriggerType = "github.com/inlined/go-functions/https.Function"
-const pubsubTriggerType = "github.com/inlined/go-functions/pubsub.Function"
-
-var triggerTypes = []string{
-	httpTriggerType,
-	pubsubTriggerType,
-}
-
-func extractTriggers(pkg string) ([]Trigger, error) {
+func extractTriggers(pkg string) ([]string, error) {
 	exports, err := loadExports(pkg)
 	if err != nil {
 		return nil, err
 	}
 
-	var triggers []Trigger
+	var triggers []string
 	for _, exp := range exports {
-		trig := Trigger{
-			Name: exp.Name(),
-			Type: exp.Type().String(),
-		}
-		triggers = append(triggers, trig)
+		triggers = append(triggers, exp.Name())
 	}
 
 	return triggers, nil
@@ -78,7 +61,7 @@ func loadExports(pkg string) ([]types.Object, error) {
 	scope := pkgs[0].Types.Scope()
 	for _, symbol := range scope.Names() {
 		typeInfo := scope.Lookup(symbol)
-		if isTrigger(symbol, typeInfo) {
+		if typeInfo.Exported() {
 			results = append(results, typeInfo)
 		}
 	}
@@ -88,21 +71,6 @@ func loadExports(pkg string) ([]types.Object, error) {
 	}
 
 	return results, nil
-}
-
-func isTrigger(name string, typeInfo types.Object) bool {
-	if !typeInfo.Exported() {
-		return false
-	}
-
-	typeName := typeInfo.Type().String()
-	for _, tt := range triggerTypes {
-		if tt == typeName {
-			return true
-		}
-	}
-
-	return false
 }
 
 const mainTemplate = `
@@ -116,13 +84,13 @@ import (
 func main() {
 	emulator.Serve(map[string]interface{}{
 	{{- range .Triggers }}
-		"{{ .Name }}": alias.{{ .Name }},
+		"{{ . }}": alias.{{ . }},
 	{{- end }}
 	})
 }
 `
 
-func generateEntrypoint(pkg string, triggers []Trigger) (string, error) {
+func generateEntrypoint(pkg string, triggers []string) (string, error) {
 	tmpl, err := template.New("main").Parse(mainTemplate)
 	if err != nil {
 		return "", err
@@ -131,7 +99,7 @@ func generateEntrypoint(pkg string, triggers []Trigger) (string, error) {
 	b := new(strings.Builder)
 	info := struct {
 		Pkg      string
-		Triggers []Trigger
+		Triggers []string
 	}{
 		Pkg:      pkg,
 		Triggers: triggers,
