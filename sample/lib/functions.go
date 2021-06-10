@@ -24,8 +24,9 @@ var PubSubListener = pubsub.Function{
 	},
 	EventType: pubsub.V1.Publish,
 	Topic:     "topic",
-	Callback: func(ctx context.Context, event pubsub.Event) {
+	Callback: func(ctx context.Context, event pubsub.Event) error {
 		fmt.Printf("Got event %+v\n", event)
+		return nil
 	},
 }
 

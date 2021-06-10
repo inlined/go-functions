@@ -48,6 +48,10 @@ func getHandler(f function) func(http.ResponseWriter, *http.Request) {
 		panic("Event-handling CloudFunctions should take a first parameter of *context.Context")
 	}
 
+	if callback.Type().NumOut() != 1 || callback.Type().Out(0) != reflect.TypeOf((*error)(nil)).Elem() {
+		panic("Event-handling CloudFunctions should return an error")
+	}
+
 	return func(w http.ResponseWriter, r *http.Request) {
 		defer r.Body.Close()
 
@@ -70,8 +74,13 @@ func getHandler(f function) func(http.ResponseWriter, *http.Request) {
 			arg = arg.Addr()
 		}
 
-		callback.Call([]reflect.Value{reflect.ValueOf(r.Context()), arg})
-		w.WriteHeader(200)
+		errVal := callback.Call([]reflect.Value{reflect.ValueOf(r.Context()), arg})[0]
+		if errVal.IsNil() {
+			w.WriteHeader(200)
+		} else {
+			w.WriteHeader(500)
+			fmt.Fprintf(w, "Error handling request: %s", errVal.Interface())
+		}
 	}
 }
 
@@ -87,14 +96,14 @@ func Serve(symbols map[string]interface{}) {
 			panic("environment variable PORT must be an int")
 		}
 	}
-	// THIS SHOULD BE 0 WHEN NOT USING GO RUN
-	var adminPort int64 = 8081
+	fmt.Printf("Serving emulator at http://localhost:%d\n", port)
+
+	var adminPort int64 = 0
 	if portStr := os.Getenv("ADMIN_PORT"); portStr != "" {
 		if adminPort, err = strconv.ParseInt(portStr, 10, 16); err != nil {
 			panic("environment varialbe ADMIN_PORT must be an int")
 		}
 	}
-	fmt.Printf("Serving emulator at http://localhost:%d\n", port)
 	if adminPort != 0 {
 		fmt.Printf("Serving emulator admin API at http://localhost:%d\n", adminPort)
 	}
