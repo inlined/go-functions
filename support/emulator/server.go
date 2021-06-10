@@ -6,8 +6,11 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"os/signal"
 	"reflect"
 	"strconv"
+	"syscall"
+	"time"
 
 	"github.com/go-yaml/yaml"
 )
@@ -128,20 +131,21 @@ func Serve(symbols map[string]interface{}) {
 		mux.HandleFunc(fmt.Sprintf("/%s", symbol), getHandler(function))
 	}
 
+	shouldShutDown := make(chan os.Signal, 1)
+	signal.Notify(shouldShutDown, os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
 	adminMux.HandleFunc("/backend.yaml", d.DescribeBackend)
 	adminMux.HandleFunc("/quitquitquit", func(w http.ResponseWriter, r *http.Request) {
-		server.Close()
-		adminServer.Close()
+		fmt.Fprintf(w, "OK\n")
+		shouldShutDown <- syscall.SIGINT
 	})
 
-	// TODO: graceful shutdown on SIGINT
-	done := make(chan struct{}, 2)
+	didShutDown := make(chan struct{}, 2)
 	go func() {
 		err := server.ListenAndServe()
 		if err != nil && err != http.ErrServerClosed {
 			fmt.Println("Emulator exited with error", err)
 		}
-		done <- struct{}{}
+		didShutDown <- struct{}{}
 	}()
 	go func() {
 		if adminServer.Addr != "" {
@@ -150,11 +154,15 @@ func Serve(symbols map[string]interface{}) {
 				fmt.Println("Emulator admin API exited with error", err)
 			}
 		}
-		done <- struct{}{}
+		didShutDown <- struct{}{}
 	}()
 
-	<-done
-	<-done
+	<-shouldShutDown
+	ctx, _ := context.WithTimeout(context.Background(), 5*time.Second)
+	server.Shutdown(ctx)
+	adminServer.Shutdown(ctx)
+	<-didShutDown
+	<-didShutDown
 }
 
 type function interface {
