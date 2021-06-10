@@ -89,6 +89,9 @@ func getHandler(f function) func(http.ResponseWriter, *http.Request) {
 // This would require reimplementing a shim type because we can't have
 // a circular reference between the https package and this package.
 func Serve(symbols map[string]interface{}) {
+	var server http.Server
+	var adminServer http.Server
+
 	var port int64 = 8080
 	var err error
 	if portStr := os.Getenv("PORT"); portStr != "" {
@@ -96,21 +99,23 @@ func Serve(symbols map[string]interface{}) {
 			panic("environment variable PORT must be an int")
 		}
 	}
+	server.Addr = fmt.Sprintf("localhost:%d", port)
 	fmt.Printf("Serving emulator at http://localhost:%d\n", port)
 
-	var adminPort int64 = 0
 	if portStr := os.Getenv("ADMIN_PORT"); portStr != "" {
-		if adminPort, err = strconv.ParseInt(portStr, 10, 16); err != nil {
+		if adminPort, err := strconv.ParseInt(portStr, 10, 16); err != nil {
 			panic("environment varialbe ADMIN_PORT must be an int")
+		} else {
+			adminServer.Addr = fmt.Sprintf("localhost:%d", adminPort)
+			fmt.Printf("Serving emulator admin API at http://localhost:%d\n", adminPort)
 		}
-	}
-	if adminPort != 0 {
-		fmt.Printf("Serving emulator admin API at http://localhost:%d\n", adminPort)
 	}
 
 	d := functionData{}
 	mux := http.NewServeMux()
+	server.Handler = mux
 	adminMux := http.NewServeMux()
+	adminServer.Handler = adminMux
 
 	for symbol, value := range symbols {
 		if asFunc, ok := value.(function); ok {
@@ -124,20 +129,24 @@ func Serve(symbols map[string]interface{}) {
 	}
 
 	adminMux.HandleFunc("/backend.yaml", d.DescribeBackend)
+	adminMux.HandleFunc("/quitquitquit", func(w http.ResponseWriter, r *http.Request) {
+		server.Close()
+		adminServer.Close()
+	})
 
 	// TODO: graceful shutdown on SIGINT
 	done := make(chan struct{}, 2)
 	go func() {
-		err := http.ListenAndServe(fmt.Sprintf("localhost:%d", port), mux)
-		if err != nil {
+		err := server.ListenAndServe()
+		if err != nil && err != http.ErrServerClosed {
 			fmt.Println("Emulator exited with error", err)
 		}
 		done <- struct{}{}
 	}()
 	go func() {
-		if adminPort != 0 {
-			err := http.ListenAndServe(fmt.Sprintf("localhost:%d", adminPort), adminMux)
-			if err != nil {
+		if adminServer.Addr != "" {
+			err := adminServer.ListenAndServe()
+			if err != nil && err != http.ErrServerClosed {
 				fmt.Println("Emulator admin API exited with error", err)
 			}
 		}
