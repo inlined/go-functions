@@ -1,4 +1,4 @@
-module github.com/FirebaseExtended/firebase-functions-go
+module github.com/inlined/go-functions
 
 go 1.16
 

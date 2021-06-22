@@ -18,7 +18,7 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/FirebaseExtended/firebase-functions-go/support/emulator"
+	"github.com/inlined/go-functions/support/emulator"
 )
 
 type Request = http.Request

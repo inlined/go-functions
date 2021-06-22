@@ -19,8 +19,8 @@
 package main
 
 import (
-	alias "github.com/FirebaseExtended/firebase-functions-go/sample/lib"
-	"github.com/FirebaseExtended/firebase-functions-go/support/emulator"
+	alias "github.com/inlined/go-functions/sample/lib"
+	"github.com/inlined/go-functions/support/emulator"
 )
 
 func main() {

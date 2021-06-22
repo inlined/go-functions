@@ -18,9 +18,9 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/FirebaseExtended/firebase-functions-go/https"
-	"github.com/FirebaseExtended/firebase-functions-go/pubsub"
-	"github.com/FirebaseExtended/firebase-functions-go/runwith"
+	"github.com/inlined/go-functions/https"
+	"github.com/inlined/go-functions/pubsub"
+	"github.com/inlined/go-functions/runwith"
 )
 
 var Webhook = https.Function{

@@ -19,8 +19,8 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/FirebaseExtended/firebase-functions-go/runwith"
-	"github.com/FirebaseExtended/firebase-functions-go/support/emulator"
+	"github.com/inlined/go-functions/runwith"
+	"github.com/inlined/go-functions/support/emulator"
 )
 
 type EventType string
